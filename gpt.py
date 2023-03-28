@@ -19,6 +19,7 @@ decode(encode('kelvin'))
 
 Xtrain_enc, Xtest_enc = torch.tensor(encode(Xtrain)), torch.tensor(encode(Xtest))
 
+# batch generator
 def get_random_batch(choice = 'train', batch_size = 1):
     if choice == 'train':
         idxs = random.sample(range(0, len(Xtrain)), batch_size)
@@ -47,7 +48,7 @@ class MaskedAttention(torch.nn.Module):
         # B, T, ndim
         query = self.to_query(x)
         key = self.to_key(x)
-        dp = (query @ key.transpose(-2, -1)) ** -0.5
+        dp = query @ key.transpose(-2, -1) * (key.shape[-1] ** -0.5)
         _, T, _ = x.shape
         dp = dp.masked_fill(self.tril[:T, :T] == 0, float('-inf'))
         sm = torch.functional.F.softmax(dp, -1) # B, T, T
