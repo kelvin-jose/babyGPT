@@ -33,3 +33,24 @@ def get_random_batch(choice = 'train', batch_size = 1):
 
 batch_size = 4
 Xbatch, Ybatch = get_random_batch('train', 4)
+
+# Masked Attention model definition
+class MaskedAttention(torch.nn.Module):
+    def __init__(self, ndim):
+        super().__init__()
+        self.to_query = torch.nn.Linear(64, ndim)
+        self.to_key = torch.nn.Linear(64, ndim)
+        self.to_value = torch.nn.Linear(64, ndim)
+        self.register_buffer('tril', torch.tril(torch.ones(block_size, block_size)))
+        
+    def forward(self, x):
+        # B, T, ndim
+        query = self.to_query(x)
+        key = self.to_key(x)
+        dp = (query @ key.transpose(-2, -1)) ** -0.5
+        _, T, _ = x.shape
+        dp = dp.masked_fill(self.tril[:T, :T] == 0, float('-inf'))
+        sm = torch.functional.F.softmax(dp, -1) # B, T, T
+        value = self.to_value(x) # B, T, C
+        wembs = sm @ value
+        return wembs
