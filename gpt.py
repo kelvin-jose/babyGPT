@@ -77,3 +77,22 @@ class Block(torch.nn.Module):
     def forward(self, x):
         output = self.mheads(x)
         return output
+    
+# GPT starter code
+class babyGPT(torch.nn.Module):
+    def __init__(self, token_dim, nheads, nblocks):
+        super().__init__()
+        self.token_embeds = torch.nn.Embedding(len(vocab), token_dim)
+        self.pos_embebs = torch.nn.Embedding(len(vocab), token_dim)
+        self.blocks = [Block(token_dim, nheads) for block in range(nblocks)]
+        self.linear = torch.nn.Linear(token_dim, len(vocab))
+        
+    def forward(self, x):
+        t_embeds = self.token_embeds(x)
+        _, T = x.shape
+        p_embds = self.pos_embebs(torch.arange(T))
+        embeds = t_embeds + p_embds
+        for block in self.blocks:
+            embeds = block(embeds)
+        logits = self.linear(embeds)
+        return logits
