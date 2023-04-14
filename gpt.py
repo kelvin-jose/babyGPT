@@ -57,3 +57,13 @@ class Head(torch.nn.Module):
         value = self.to_value(x) # B, T, C
         wembs = sm @ value
         return wembs
+
+# MultiHead
+class MultiHeadMaskedAttention(torch.nn.Module):
+    def __init__(self, token_dim, nheads):
+        super().__init__()
+        self.heads = [Head(token_dim, token_dim // nheads) for head in range(nheads)]
+        self.ffwd = torch.nn.Linear(token_dim, token_dim)
+    
+    def forward(self, x):
+        return self.ffwd(torch.cat([head(x) for head in self.heads], dim = -1))
