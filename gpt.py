@@ -1,5 +1,7 @@
 import torch
 import random
+random.seed(0)
+torch.manual_seed(0)
 
 INPUT_FILE_LOCATION = '../data/input.txt'
 input_file = open(INPUT_FILE_LOCATION).read()
@@ -35,20 +37,20 @@ def get_random_batch(choice = 'train', batch_size = 1):
 batch_size = 4
 Xbatch, Ybatch = get_random_batch('train', 4)
 
-# Masked Attention model definition
-class MaskedAttention(torch.nn.Module):
-    def __init__(self, ndim):
+# Masked Head model definition
+class Head(torch.nn.Module):
+    def __init__(self, token_dim, ndim):
         super().__init__()
-        self.to_query = torch.nn.Linear(64, ndim)
-        self.to_key = torch.nn.Linear(64, ndim)
-        self.to_value = torch.nn.Linear(64, ndim)
+        self.to_query = torch.nn.Linear(token_dim, ndim)
+        self.to_key = torch.nn.Linear(token_dim, ndim)
+        self.to_value = torch.nn.Linear(token_dim, ndim)
         self.register_buffer('tril', torch.tril(torch.ones(block_size, block_size)))
         
     def forward(self, x):
         # B, T, ndim
         query = self.to_query(x)
         key = self.to_key(x)
-        dp = query @ key.transpose(-2, -1) * (key.shape[-1] ** -0.5)
+        dp = query @ key.transpose(-2, -1) * (key.shape[-1]**-0.5)
         _, T, _ = x.shape
         dp = dp.masked_fill(self.tril[:T, :T] == 0, float('-inf'))
         sm = torch.functional.F.softmax(dp, -1) # B, T, T
