@@ -67,3 +67,13 @@ class MultiHeadMaskedAttention(torch.nn.Module):
     
     def forward(self, x):
         return self.ffwd(torch.cat([head(x) for head in self.heads], dim = -1))
+
+# Block    
+class Block(torch.nn.Module):
+    def __init__(self, token_dim, nheads):
+        super().__init__()
+        self.mheads = MultiHeadMaskedAttention(token_dim, nheads)
+        
+    def forward(self, x):
+        output = self.mheads(x)
+        return output
