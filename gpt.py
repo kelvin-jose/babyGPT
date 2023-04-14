@@ -96,3 +96,24 @@ class babyGPT(torch.nn.Module):
             embeds = block(embeds)
         logits = self.linear(embeds)
         return logits
+    
+# basic training script
+nheads = 4
+nblocks = 2
+lr = 0.001
+batch_size = 32
+train_steps = 10000
+
+bgpt = babyGPT(token_dim, nheads, nblocks)
+optim = torch.optim.AdamW(bgpt.parameters(), lr = lr)
+
+for step in range(train_steps):
+    xtrain, ytrain = get_random_batch('train', batch_size)
+    logits = bgpt(xtrain)
+    B, T, C = logits.shape
+    loss = torch.nn.functional.cross_entropy(logits.reshape(B*T, C), ytrain.reshape(-1))
+    optim.zero_grad()
+    loss.backward()
+    optim.step()
+    if step % 100 == 0:
+        print(f'step : {step} loss : {loss.detach():3f}')
