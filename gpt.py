@@ -24,7 +24,7 @@ Xtrain_enc, Xtest_enc = torch.tensor(encode(Xtrain)), torch.tensor(encode(Xtest)
 # batch generator
 def get_random_batch(choice = 'train', batch_size = 1):
     if choice == 'train':
-        idxs = random.sample(range(0, len(Xtrain)), batch_size)
+        idxs = random.sample(range(0, len(Xtrain) - block_size), batch_size)
         Xbatch = torch.stack([Xtrain_enc[idx:idx + block_size] for idx in idxs])
         Ybatch = torch.stack([Xtrain_enc[idx + 1:idx + block_size + 1] for idx in idxs])
         return Xbatch, Ybatch
@@ -100,7 +100,7 @@ class babyGPT(torch.nn.Module):
         self.blocks = [Block(token_dim, nheads) for block in range(nblocks)]
         self.linear = torch.nn.Linear(token_dim, len(vocab))
         
-    def forward(self, x):
+    def forward(self, x, test = False):
         t_embeds = self.token_embeds(x)
         _, T = x.shape
         p_embeds = self.pos_embeds(torch.arange(T))
@@ -110,13 +110,27 @@ class babyGPT(torch.nn.Module):
         logits = self.linear(embeds)
         return logits
     
+def generate(model, max_tokens):
+    model.eval()
+    tokens = torch.tensor([[0]])
+    text = ''
+    for t in range(max_tokens):
+        logits = model(tokens)[:, -1, :]
+        probs = torch.nn.functional.softmax(logits, dim = -1)
+        idx_next = torch.multinomial(probs, num_samples=1) 
+        text += decode(idx_next.tolist()[0])[0]
+        tokens = torch.cat((tokens, idx_next), dim=1)
+        tokens = tokens[:, -block_size:]
+        print(text)
+        
+
 # basic training script
 nheads = 4
 nblocks = 2
 lr = 0.001
 token_dim = 32
-batch_size = 16
-train_steps = 10000
+batch_size = 64
+train_steps = 50000
 
 bgpt = babyGPT(token_dim, nheads, nblocks)
 optim = torch.optim.AdamW(bgpt.parameters(), lr = lr)
@@ -131,3 +145,5 @@ for step in range(train_steps):
     optim.step()
     if step % 100 == 0:
         print(f'step : {step} loss : {loss.detach():3f}')
+
+generate(bgpt, 500)
