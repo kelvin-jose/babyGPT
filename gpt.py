@@ -3,7 +3,7 @@ import random
 random.seed(0)
 torch.manual_seed(0)
 
-INPUT_FILE_LOCATION = '../data/input.txt'
+INPUT_FILE_LOCATION = 'data/input.txt'
 input_file = open(INPUT_FILE_LOCATION).read()
 input_file_len = len(input_file)
 
@@ -101,7 +101,8 @@ class babyGPT(torch.nn.Module):
 nheads = 4
 nblocks = 2
 lr = 0.001
-batch_size = 32
+token_dim = 32
+batch_size = 4
 train_steps = 10000
 
 bgpt = babyGPT(token_dim, nheads, nblocks)
