@@ -58,12 +58,25 @@ class Head(torch.nn.Module):
         wembs = sm @ value
         return wembs
 
+class FeedForward(torch.nn.Module):
+    def __init__(self, _in, _out):
+        super().__init__()
+        self.linear1 = torch.nn.Linear(_in, _in * 2)
+        self.relu = torch.nn.ReLU()
+        self.linear2 = torch.nn.Linear(_in * 2, _out)
+    
+    def forward(self, x):
+        x = self.linear1(x)
+        x = self.relu(x)
+        x = self.linear2(x)
+        return x
+
 # MultiHead
 class MultiHeadMaskedAttention(torch.nn.Module):
     def __init__(self, token_dim, nheads):
         super().__init__()
         self.heads = [Head(token_dim, token_dim // nheads) for head in range(nheads)]
-        self.ffwd = torch.nn.Linear(token_dim, token_dim)
+        self.ffwd = FeedForward(token_dim, token_dim)
     
     def forward(self, x):
         return self.ffwd(torch.cat([head(x) for head in self.heads], dim = -1))
@@ -83,15 +96,15 @@ class babyGPT(torch.nn.Module):
     def __init__(self, token_dim, nheads, nblocks):
         super().__init__()
         self.token_embeds = torch.nn.Embedding(len(vocab), token_dim)
-        self.pos_embebs = torch.nn.Embedding(len(vocab), token_dim)
+        self.pos_embeds = torch.nn.Embedding(len(vocab), token_dim)
         self.blocks = [Block(token_dim, nheads) for block in range(nblocks)]
         self.linear = torch.nn.Linear(token_dim, len(vocab))
         
     def forward(self, x):
         t_embeds = self.token_embeds(x)
         _, T = x.shape
-        p_embds = self.pos_embebs(torch.arange(T))
-        embeds = t_embeds + p_embds
+        p_embeds = self.pos_embeds(torch.arange(T))
+        embeds = t_embeds + p_embeds
         for block in self.blocks:
             embeds = block(embeds)
         logits = self.linear(embeds)
@@ -102,7 +115,7 @@ nheads = 4
 nblocks = 2
 lr = 0.001
 token_dim = 32
-batch_size = 4
+batch_size = 16
 train_steps = 10000
 
 bgpt = babyGPT(token_dim, nheads, nblocks)
