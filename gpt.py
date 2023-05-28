@@ -70,7 +70,7 @@ class FeedForward(torch.nn.Module):
         x1 = self.linear1(x)
         x2 = self.relu(x1)
         x3 = self.linear2(x2)
-        return x3 + x
+        return torch.nn.functional.layer_norm(x3 + x, x.shape)
 
 # MultiHead
 class MultiHeadMaskedAttention(torch.nn.Module):
@@ -89,9 +89,9 @@ class Block(torch.nn.Module):
         self.mheads = MultiHeadMaskedAttention(token_dim, nheads)
         
     def forward(self, x):
-        output = self.mheads(x) + x
+        output = torch.nn.functional.layer_norm(self.mheads(x) + x, x.shape)
         return output
-    
+            
 # GPT starter code
 class babyGPT(torch.nn.Module):
     def __init__(self, token_dim, nheads, nblocks):
