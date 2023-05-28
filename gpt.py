@@ -17,7 +17,8 @@ id2char = {i: char for char, i in char2id.items()}
 
 encode = lambda chars: [char2id[char] for char in chars]
 decode = lambda ids: [id2char[i] for i in ids]
-decode(encode('kelvin'))
+
+print(decode(encode('kelvin')))
 
 Xtrain_enc, Xtest_enc = torch.tensor(encode(Xtrain)), torch.tensor(encode(Xtest))
 
@@ -66,10 +67,10 @@ class FeedForward(torch.nn.Module):
         self.linear2 = torch.nn.Linear(_in * 2, _out)
     
     def forward(self, x):
-        x = self.linear1(x)
-        x = self.relu(x)
-        x = self.linear2(x)
-        return x
+        x1 = self.linear1(x)
+        x2 = self.relu(x1)
+        x3 = self.linear2(x2)
+        return x3 + x
 
 # MultiHead
 class MultiHeadMaskedAttention(torch.nn.Module):
@@ -88,7 +89,7 @@ class Block(torch.nn.Module):
         self.mheads = MultiHeadMaskedAttention(token_dim, nheads)
         
     def forward(self, x):
-        output = self.mheads(x)
+        output = self.mheads(x) + x
         return output
     
 # GPT starter code
@@ -130,7 +131,7 @@ nblocks = 4
 lr = 0.001
 token_dim = 32
 batch_size = 64
-train_steps = 50000
+train_steps = 5000
 
 bgpt = babyGPT(token_dim, nheads, nblocks)
 optim = torch.optim.AdamW(bgpt.parameters(), lr = lr)
