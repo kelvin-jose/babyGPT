@@ -11,7 +11,7 @@ vocab = sorted(set(input_file))
 train_ratio = 0.7
 Xtrain, Xtest = input_file[:int(input_file_len * train_ratio)], input_file[int(input_file_len * train_ratio):]
 
-block_size = 8
+block_size = 16
 char2id = {char: i for i, char in enumerate(vocab)}
 id2char = {i: char for char, i in char2id.items()}
 
@@ -111,12 +111,15 @@ class babyGPT(torch.nn.Module):
         logits = self.linear(embeds)
         return logits
     
-    def generate(self, max_tokens):
+    def generate(self, max_tokens, temp=1.0, top_k=None):
         self.eval()
         tokens = torch.tensor([[0]])
         text = ''
         for _ in range(max_tokens):
-            logits = self(tokens)[:, -1, :]
+            logits = self(tokens)[:, -1, :] / temp
+            if top_k is not None:
+                idx_to_rm = logits < torch.topk(logits, top_k)[0]
+                logits = logits.masked_fill(idx_to_rm, -float('inf'))
             probs = torch.nn.functional.softmax(logits, dim = -1)
             idx_next = torch.multinomial(probs, num_samples = 1) 
             text += decode(idx_next.tolist()[0])[0]
@@ -126,12 +129,12 @@ class babyGPT(torch.nn.Module):
         self.train()       
 
 # basic training script
-nheads = 4
-nblocks = 4
+nheads = 8
+nblocks = 8
 lr = 0.001
-token_dim = 32
+token_dim = 64
 batch_size = 64
-train_steps = 5000
+train_steps = 50000
 
 bgpt = babyGPT(token_dim, nheads, nblocks)
 optim = torch.optim.AdamW(bgpt.parameters(), lr = lr)
@@ -148,7 +151,7 @@ for step in range(train_steps):
     optim.zero_grad()
     loss.backward()
     optim.step()
-    if step % 100 == 0:
+    if step % 1000 == 0:
         xtest, ytest = get_random_batch('test', batch_size)
         test_loss = forward(bgpt, xtest, ytest)
         print(f'step : {step} train loss : {loss.detach():.3f}  test loss : {test_loss.detach():.3f}')
