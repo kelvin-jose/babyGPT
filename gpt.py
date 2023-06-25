@@ -77,19 +77,19 @@ class MultiHeadMaskedAttention(torch.nn.Module):
     def __init__(self, token_dim, nheads):
         super().__init__()
         self.heads = [Head(token_dim, token_dim // nheads) for head in range(nheads)]
-        self.ffwd = FeedForward(token_dim, token_dim)
     
     def forward(self, x):
-        return self.ffwd(torch.cat([head(x) for head in self.heads], dim = -1))
+        return torch.cat([head(x) for head in self.heads], dim = -1)
 
 # Block    
 class Block(torch.nn.Module):
     def __init__(self, token_dim, nheads):
         super().__init__()
         self.mheads = MultiHeadMaskedAttention(token_dim, nheads)
-        
+        self.ffwd = FeedForward(token_dim, token_dim)
+
     def forward(self, x):
-        output = torch.nn.functional.layer_norm(self.mheads(x) + x, x.shape)
+        output = self.ffwd(torch.nn.functional.layer_norm(self.mheads(x) + x, x.shape))
         return output
             
 # GPT starter code
@@ -134,7 +134,7 @@ nblocks = 8
 lr = 0.001
 token_dim = 64
 batch_size = 64
-train_steps = 50000
+train_steps = 5
 
 bgpt = babyGPT(token_dim, nheads, nblocks)
 optim = torch.optim.AdamW(bgpt.parameters(), lr = lr)
