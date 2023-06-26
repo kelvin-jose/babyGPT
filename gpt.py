@@ -76,7 +76,7 @@ class FeedForward(torch.nn.Module):
 class MultiHeadMaskedAttention(torch.nn.Module):
     def __init__(self, token_dim, nheads):
         super().__init__()
-        self.heads = [Head(token_dim, token_dim // nheads) for head in range(nheads)]
+        self.heads = torch.nn.ModuleList([Head(token_dim, token_dim // nheads) for head in range(nheads)])
     
     def forward(self, x):
         return torch.cat([head(x) for head in self.heads], dim = -1)
@@ -95,25 +95,26 @@ class Block(torch.nn.Module):
 # GPT starter code
 class babyGPT(torch.nn.Module):
     def __init__(self, token_dim, nheads, nblocks):
-        super().__init__()
-        self.token_embeds = torch.nn.Embedding(len(vocab), token_dim)
-        self.pos_embeds = torch.nn.Embedding(len(vocab), token_dim)
-        self.blocks = [Block(token_dim, nheads) for block in range(nblocks)]
-        self.linear = torch.nn.Linear(token_dim, len(vocab))
+        super(babyGPT, self).__init__()
+        self.gpt = torch.nn.ModuleDict(dict(
+        token_embeds = torch.nn.Embedding(len(vocab), token_dim),
+        pos_embeds = torch.nn.Embedding(len(vocab), token_dim),
+        blocks = torch.nn.ModuleList([Block(token_dim, nheads) for _ in range(nblocks)]),
+        linear = torch.nn.Linear(token_dim, len(vocab))))
         
     def forward(self, x):
-        t_embeds = self.token_embeds(x)
+        t_embeds = self.gpt.token_embeds(x)
         _, T = x.shape
-        p_embeds = self.pos_embeds(torch.arange(T))
+        p_embeds = self.gpt.pos_embeds(torch.arange(0,  T, dtype=torch.long, device='cuda:0'))
         embeds = t_embeds + p_embeds
-        for block in self.blocks:
+        for block in self.gpt.blocks:
             embeds = block(embeds)
-        logits = self.linear(embeds)
+        logits = self.gpt.linear(embeds)
         return logits
     
     def generate(self, max_tokens, temp=1.0, top_k=None):
         self.eval()
-        tokens = torch.tensor([[0]])
+        tokens = torch.tensor([[0]], device='cuda:0')
         text = ''
         for _ in range(max_tokens):
             logits = self(tokens)[:, -1, :] / temp
@@ -133,13 +134,16 @@ nheads = 8
 nblocks = 8
 lr = 0.001
 token_dim = 64
-batch_size = 64
-train_steps = 5
+batch_size = 128
+train_steps = 50000
 
 bgpt = babyGPT(token_dim, nheads, nblocks)
+bgpt.cuda()
 optim = torch.optim.AdamW(bgpt.parameters(), lr = lr)
 
 def forward(model, x, y):
+    x = x.to('cuda:0')
+    y = y.to('cuda:0')
     logits = model(x)
     B, T, C = logits.shape
     loss = torch.nn.functional.cross_entropy(logits.reshape(B*T, C), y.reshape(-1))
